@@ -7,9 +7,7 @@ import search_handle
 
 # xml = '<xml><ToUserName><![CDATA[wx1954194c36b26a40]]></ToUserName><FromUserName><![CDATA[test]]></FromUserName><CreateTime>1507866276465</CreateTime><MsgType><![CDATA[text]]></MsgType><MsgId><![CDATA[23523535345]]></MsgId></xml>'
 # recMsg = receive.parse_xml(xml)
-WEIXINID = 'oDFHUv8_F7PVZc0oMrVjlBrlMKto' # 电脑微信
-# WEIXINID = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s' # 手机微信号
-# WEIXINID = 'oDFHUvyIwbdfm62_WU7amhnR12CM' #XYH
+WEIXINID = '***' # 电脑微信
 
 USAGE = '''
   ==本报障平台使用方式如下==
