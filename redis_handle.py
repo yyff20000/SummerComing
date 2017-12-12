@@ -2,22 +2,13 @@
 import redis
 import time
 
-# 注意事项
-# password强度
-# ip限定
-# 重命名CONFIG命令 Redis.conf -> rename-command CONFIG b840fc02d524045429941cc15f59e41cb7be6c52
-
-#
-# 定义的一些常量
-
 ONE_WEEK_IN_SECONDS = 24 * 3600 * 7
 ONE_MONTH_IN_SECONDS = 24 * 3600 * 30
 WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    # conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
-    conn = redis.StrictRedis.from_url(url = 'redis://:PR47Pxe1lMlabUz2PrfkWIAR15JlZCxClTdVd34eRGVmLvYNPXwyKoN7LCSx85T0@duofyffmcvuq.redis.sae.sina.com.cn:10339')
+    conn = redis.StrictRedis.from_url(url = '***')
     return conn
 
 # article = 'article:10000'
@@ -175,11 +166,3 @@ def reply(conn, articleId, content):
         return e
 
 
-# register(connect(),msg,'oDFHUv8_F7PVZc0oMrVjlBrlMKto')
-conn = connect()
-# weixinid = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s'
-# init_redis(conn)
-# print(conn.smembers('unsolved:'))
-# a = conn.sinter(['unsolved:','unsolved:'])
-# b = {'3':'3','2':'2','1':'1'}
-# print(dicToText(conn, b))
