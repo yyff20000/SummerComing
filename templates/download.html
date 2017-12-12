@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Download</title>
+	<link href="http://cdn.bootcss.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet">
+	<link href="http://cdn.bootcss.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet">
+	<link href="static/css/simsCheckbox.css" rel='stylesheet' type='text/css' />
+	<style type="text/css">
+		.container{
+			background: #fff;
+			padding: 2em 0;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+        <h2 class="text-center">常用资料下载</h2>
+		<div class="container">
+			<div class="panel panel-default">
+			  <div class="panel-body">
+			    <ul class="demo">
+				    <li id = '1'>offline_x64.exe</li></a>
+				    <li id = '2'>offline_x86.exe</li>
+				    <li id = '3'>syslog配参考置V1.41.doc</li>
+				    <li id = '4'>安全管控平台申请工单操作手册-20170705.doc</li>
+				    <li id = '5'>管控平台账号&amp;VPN申请表-分公司（20170426模板）.docx</li>
+                    <li id = '6'>管控平台账号&amp;VPN申请表-省公司（20170426模板）.docx</li>
+                    <li id = '7'>湖南安全合规操作说明文档.doc</li>
+                    <li id = '8'>湖南移动安全管控平台应用资源授权调研表-V2.xls</li>
+                    <li id = '9'>金库申请模板.xlsx</li>
+                    <li id = '10'>模板：程序帐号登记.xlsx</li>
+                    <li id = '11'>模板：应急终端登记.xlsx</li>
+                    <li id = '12'>行备案模板.xlsx</li>
+                    <li id = '13'>应用资源接入接入管控平台申请表.xls</li>
+                    <br/>
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-danger" align="pull-right" onclick="getId()">下载</button>
+                    </div>
+
+				</ul>
+			  </div>
+			</div>
+		</div>
+
+	</div>
+
+ 	<script type="text/javascript">
+ 		function getId() {
+ 			a = document.getElementsByClassName('sims-selectable btn btn-block btn-social btn-info');
+	 		i = 0;
+	 		for( i ; i < a.length ; i++){
+	 			download('./download/'+ a[i].id);
+	 		}
+ 		}
+ 		function download(url){
+ 		    node = document.createElement('iframe');
+            node.setAttribute("src", url);
+ 		    node.setAttribute("style",'display:none');
+		    document.head.appendChild(node);
+		}
+ 	</script>
+
+	<script src="static/js/jquery-1.11.0.min.js"></script>
+	<script src="static/js/simsCheckbox.js" type="text/javascript"></script>
+	<script type="text/javascript">
+		$(document).ready(function (){
+		    $(".demo").simsCheckbox({
+		    		"checkedClass":'btn-info'
+		    });
+		});
+	</script>
+</body>
+</html>
