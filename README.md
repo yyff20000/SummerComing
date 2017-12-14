@@ -7,3 +7,5 @@ Allows users to do the following operations via communicating with ```Wechat Off
         <br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`*` Search  (Using [Jieba Chinese Text Segmentation](https://github.com/fxsjy/jieba))
         <br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`*` Submit
         <br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`*` Reply(Admin only) 
+
+welcome！
