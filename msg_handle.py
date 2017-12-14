@@ -8,6 +8,8 @@ import search_handle
 # xml = '<xml><ToUserName><![CDATA[wx1954194c36b26a40]]></ToUserName><FromUserName><![CDATA[test]]></FromUserName><CreateTime>1507866276465</CreateTime><MsgType><![CDATA[text]]></MsgType><MsgId><![CDATA[23523535345]]></MsgId></xml>'
 # recMsg = receive.parse_xml(xml)
 WEIXINID = '***' # 电脑微信
+# WEIXINID = '***' # 手机微信号
+# WEIXINID = '***' #XYH
 
 USAGE = '''
   ==本报障平台使用方式如下==
@@ -28,6 +30,10 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
     error_msg = error_handle.redis_register_format(msg)
     if error_msg == True:
         if not redis_handle.is_registered(redis_conn, weixinId):  # 检测数据库 user: 结构中是否存有该用户的微信id
+            if redis_handle.getNameFromPhone(redis_conn, msg[1]) != msg[2]:
+                return "[ ! ] 注册失败，手机号与姓名校验不匹配。\n" + \
+                       '[ ! ] 请发送如下格式信息完成注册：\n\n' \
+                       '注册 联系方式 姓名'
             # 执行注册操作
             redis_handle.register(redis_conn, msg, weixinId)
             return '[ * ] 注册成功，祝您使用愉快。 \n ' + USAGE
@@ -39,7 +45,7 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
         return '[ ! ] 发生错误！\n' + '[ ! ] 错误信息为 : ' + error_msg + '\n' \
                '[ ! ] 请发送如下格式信息完成注册：\n\n' \
             \
-               '注册 所属公司 部门 姓名 联系方式'
+               '注册 联系方式 姓名'
 
 
 def check(msg, redis_conn, weixinId): # 查看文章
@@ -96,7 +102,7 @@ def msgHandle(textMsg): # 主处理函数，传入一个recMsg结构
     msg = textMsg.Content.strip().split(' ')
     operation = msg[0] # 获取用户需要进行的操作
     redis_conn = redis_handle.connect() # 连接redis服务器，获取connect对象
-
+    # return weixinId
     if operation == '注册':
         # 用户注册
         return reg(msg, redis_conn, weixinId)
@@ -117,6 +123,6 @@ def msgHandle(textMsg): # 主处理函数，传入一个recMsg结构
         # 无法识别的输入
         msg = '==安管平台报障响应智能系统== \n'
         if not redis_handle.is_registered(redis_conn, weixinId):
-            return msg + '\n[ * ] 系统尚未保存您的用户信息，请发送如下格式信息完成注册：\n\n注册 所属公司 部门 姓名 联系方式 \n如：注册 邵阳分公司 管控 老王 15088888888'
+            return msg + '\n[ * ] 系统尚未保存您的用户信息，请发送如下格式信息完成注册：\n\n注册 联系方式 姓名 \n如：注册 15088888888 老王'
         else:
             return msg + USAGE
