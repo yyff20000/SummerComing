@@ -2,13 +2,17 @@
 import redis
 import time
 
+#
+# 定义的一些常量
+
 ONE_WEEK_IN_SECONDS = 24 * 3600 * 7
 ONE_MONTH_IN_SECONDS = 24 * 3600 * 30
 WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    conn = redis.StrictRedis.from_url(url = '***')
+    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
+    # conn = redis.StrictRedis.from_url(url = '***')
     return conn
 
 # article = 'article:10000'
@@ -23,6 +27,8 @@ def is_registered(conn, weixin_id): # 检查是否注册
 def is_article(conn, article_id): # 检查是否存在该文章
     return conn.sismember('articles:', article_id)
 
+def getNameFromPhone(conn, phone):
+    return conn.hget("user:" + phone, "name") # user:13388888888
 
 def getTitle(conn, article_id): # 获取文章标题
     return conn.hget('article:'+article_id,'title')
@@ -67,12 +73,19 @@ def dicToText(conn, dic): # 将字典类型转成输出
 def register(conn, textMsg, weixin_id): # 用户注册
     # 添加 user: 结构中用户
     conn.sadd('users:', weixin_id)
+    # 添加weixinId->phone对应表
+    conn.sadd('phone:'+textMsg[1],weixin_id)
     # 添加 单个用户profile
-    conn.hmset('user:' + weixin_id , {
-        'corp': textMsg[1],
-        'depart' : textMsg[2],
-        'name': textMsg[3],
-        'phone': textMsg[4],
+    conn.hmset('user:' + textMsg[1] , {
+        'weixinId': weixin_id
+    })
+
+def addUser(conn, phone, name, corp, depart):
+    conn.hmset('user:' + phone, {
+        'corp': corp,
+        'depart': depart,
+        'name': name,
+        'phone': phone,
         'createtime': time.time(),
     })
 
@@ -164,5 +177,3 @@ def reply(conn, articleId, content):
         return '回复成功'
     except Exception as e:
         return e
-
-
