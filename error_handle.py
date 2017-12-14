@@ -19,13 +19,13 @@ def format(content, type):
         return '发生了未知错误，请稍后再试!'
 
 def redis_register_format(msg):
-    if not len(msg) == 5:
+    if not len(msg) == 3:
         return '注册参数数量有误!' # + str(len(msg))
-    for i in range(4):
-        error_msg = format(msg[i], 1)
-        if not error_msg == True:
-            return error_msg
-    error_msg = format(msg[4], 2)
+    # for i in range(4):
+    #     error_msg = format(msg[i], 1)
+    #     if not error_msg == True:
+    #         return error_msg
+    error_msg = format(msg[1], 2)
     return error_msg
 
 def is_article_num(s):
