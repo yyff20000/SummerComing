@@ -11,24 +11,25 @@ jieba.load_userdict('./word.dic')
 # 输入内容 分词 获得名词 存到临时集合中 根据关联程度返回文章摘要和id 查看id 获得文章内容和
 def match(redis_conn, userInput):
     try:
-        id = 1
         i = 0
         relation = {} # 文章id 与所搜索内容关联度映射表
         out = ''
         if seperate(redis_conn, userInput, 'User') != True: # 首先构造用户输入的分词集
             return 'UserInputError'
-        while redis_handle.is_article(redis_conn, str(id)): # 循环获取所有文章的内容
-            # print('id:'+str(id))
-            articleContent = redis_handle.getContent(redis_conn, str(id)) # 构造了当前文章的分词集
+        for id in sorted(redis_conn.smembers('articles_admin:')): # 集合合并+循环获取所有文章的内容
+            articleContent = redis_handle.getContent(
+                redis_conn,
+                str(id),
+            ) # 构造了当前文章的分词集
+            # print(articleContent)
             if seperate(redis_conn, articleContent, 'Db') != True:
                 return 'DbInputError'
             # print(redis_conn.sinter(['tmpDbWordList','tmpUserWordList']))
             count = len(redis_conn.sinter(['tmpDbWordList','tmpUserWordList']))
             if count != 0:
                 relation[str(id)] = str(count)  # 映射赋值
-            id = id + 1
-        # print(relation)
-        rel = dictSort(relation)
+
+        rel = dictSort(relation) # 映射排序
         if rel == {}:
             return '无匹配数据'
         for key in rel.keys():
@@ -36,12 +37,12 @@ def match(redis_conn, userInput):
                 return out[:-2]
             else:
                 i += 1
-                if not redis_handle.is_article(conn,key):
+                if not redis_handle.is_admin_article(conn, str(key)):
                     return out[:-2]
-                out += redis_handle.getArticleDetail(conn,key)
+                out += redis_handle.getArticleDetail(conn, str(key))
         return out[:-2]
     except Exception as e :
-        return e
+        return 'matchError:'+str(e)
 
 def seperate(redis_conn, content, input): # 构造分词集 input = Db / User 代表数据原有文章内容或用户查询内容
     try:
@@ -49,7 +50,9 @@ def seperate(redis_conn, content, input): # 构造分词集 input = Db / User �
             return
         redis_conn.delete('tmp'+input+'WordList')  # 先清零
         forbid = ['uj', 'x', 't', 'v', 'zg', 'd']  # 设置词性过滤表
+
         wordList = pseg.cut(content)
+
         for words in wordList :
             if words.flag not in forbid and not error_handle.format(words.word, 3): # 词性过滤、且不是特殊字符
                 # print(words.word)
@@ -57,7 +60,7 @@ def seperate(redis_conn, content, input): # 构造分词集 input = Db / User �
         return True
     except Exception as e:
         print(e)
-        return e
+        return 'seperateError:'+str(e)
 
 def dictSort(dic): # 按照键值从大到小排序
     try:
@@ -73,9 +76,6 @@ def dictSort(dic): # 按照键值从大到小排序
 # print(dictSort(a))
 
 conn = redis_handle.connect()
-print(match(conn,'用户'))
-# print(redis_handle.is_article(conn, 'article:1'))
-
-# seg_list = jieba.cut_for_search(abc)  # 搜索引擎模式
-# for word, flag in seg_list:
-#     print('%s %s' % (word, flag))
+print(match(conn,'服务器异常'))
+# print(redis_handle.is_admin_article(conn,18))
+# print(redis_handle.is_admin_article(conn, b'13'))

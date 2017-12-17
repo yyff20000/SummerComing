@@ -7,9 +7,9 @@ import search_handle
 
 # xml = '<xml><ToUserName><![CDATA[wx1954194c36b26a40]]></ToUserName><FromUserName><![CDATA[test]]></FromUserName><CreateTime>1507866276465</CreateTime><MsgType><![CDATA[text]]></MsgType><MsgId><![CDATA[23523535345]]></MsgId></xml>'
 # recMsg = receive.parse_xml(xml)
-WEIXINID = '***' # 电脑微信
-# WEIXINID = '***' # 手机微信号
-# WEIXINID = '***' #XYH
+WEIXINID = 'oDFHUv8_F7PVZc0oMrVjlBrlMKto' # 电脑微信
+# WEIXINID = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s' # 手机微信号
+# WEIXINID = 'oDFHUvyIwbdfm62_WU7amhnR12CM' #XYH
 
 USAGE = '''
   ==本报障平台使用方式如下==
@@ -51,23 +51,25 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
 def check(msg, redis_conn, weixinId): # 查看文章
     try:
         if len(msg) == 1: # 未传入文章id
-             if weixinId == WEIXINID:  # 若为管理员登录，则返回所有待回复文章的id
-                 return redis_handle.admin_check(redis_conn,)
-             else:
-                 return redis_handle.user_check(redis_conn, weixinId,)
+            if weixinId == WEIXINID:  # 若为管理员登录，则返回所有待回复文章的id
+                return redis_handle.admin_check(redis_conn,)
+            else:
+                return redis_handle.user_check(redis_conn, weixinId,)
         elif len(msg) == 2 :
-             if error_handle.is_article_num(msg[1])  and  \
-                redis_handle.is_article(redis_conn, msg[1]): # 输入 [查看 id] 获取某文章内容
-                 if weixinId == WEIXINID:  # 管理员登录
-                     return redis_handle.admin_check(redis_conn, msg[1])
-                 else:
-                     return redis_handle.user_check(redis_conn, weixinId, msg[1])
-             else :
-                 return search_handle.match(redis_conn, msg[1])
+            if error_handle.is_article_num(msg[1])  :
+                if redis_handle.is_article(redis_conn, msg[1]) | redis_handle.is_admin_article(redis_conn,msg[1]): # 输入 [查看 id] 获取某文章内容
+                    if weixinId == WEIXINID:  # 管理员登录
+                        return redis_handle.admin_check(redis_conn, msg[1])
+                    else:
+                        return redis_handle.user_check(redis_conn, weixinId, msg[1])
+                else:
+                    return '未找到对应文章'
+            else :
+                return search_handle.match(redis_conn, msg[1])
         else:
             return "查询格式发生错误，请检查后重新输入"
     except Exception as e:
-        return e
+        return 'checkError'+str(e)
 
 
 def report(msg, redis_conn, weixinId): # 用户报障

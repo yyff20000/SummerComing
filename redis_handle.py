@@ -2,6 +2,11 @@
 import redis
 import time
 
+# 注意事项
+# password强度
+# ip限定
+# 重命名CONFIG命令 Redis.conf -> rename-command CONFIG b840fc02d524045429941cc15f59e41cb7be6c52
+
 #
 # 定义的一些常量
 
@@ -12,7 +17,8 @@ ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
     conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
-    # conn = redis.StrictRedis.from_url(url = '***')
+    # conn = redis.StrictRedis.from_url(url = 'redis://:PR47Pxe1lMlabUz2PrfkWIAR15JlZCxClTdVd34eRGVmLvYNPXwyKoN7LCSx85T0@duofyffmcvuq.redis.sae.sina.com.cn:10339')
+
     return conn
 
 # article = 'article:10000'
@@ -23,6 +29,8 @@ def connect():
 def is_registered(conn, weixin_id): # 检查是否注册
     return conn.sismember('users:', weixin_id)
 
+def is_admin_article(conn, article_id):
+    return conn.sismember('articles_admin:', article_id)
 
 def is_article(conn, article_id): # 检查是否存在该文章
     return conn.sismember('articles:', article_id)
@@ -56,7 +64,7 @@ def getArticle(conn, article_id):
 
 def getArticleDetail(conn, article_id):
     content = str(getContent(conn,str(article_id)))
-    reply = str(conn.hget(name='article:'+article_id, key='reply'))
+    reply = str(conn.hget('article:'+article_id, 'reply'))
     text = '文章id: '+ str(article_id) + \
         '\n内容描述: '+ content +  \
         '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
@@ -93,10 +101,6 @@ def addUser(conn, phone, name, corp, depart):
 def post_article(conn, user, content, solution= None): #  发布文章，缺少 [!] 关键字添加功能
 
     article_id = str(conn.incr('count:')) # 自增获取文章id
-    # watch = 'watch:' + article_id
-    # conn.sadd(watch, user) # 创建文章热度
-    # conn.expire(watch, ONE_MONTH_IN_SECONDS)
-
     now = time.time()
     article = 'article:' + article_id
 
@@ -136,7 +140,7 @@ def admin_check(conn, id = None): # 管理员输入 查看
             inter = conn.smembers('unsolved:')
             if len(inter) != 0:
                 for i in inter:
-                    unsol[i] = getTitle(conn, i)
+                    unsol[i] = getTitle(conn, i) # 未解决内容一定在articles:表里
                 return dicToText(conn, unsol)[:-2]  # 返回未解决文章id
             else:
                 return "全部故障均已解决！"
@@ -162,8 +166,8 @@ def user_check(conn, weixinid, id = None):
             else:
                 return "全部故障均已解决！"
         except Exception as e:
-            return e
-    else:
+            return 'user_checkError:'+str(e)
+    else :
         return getArticleDetail(conn, id)[:-2] # 返回id对应文章的内容
 
 
@@ -176,4 +180,15 @@ def reply(conn, articleId, content):
         conn.srem('unsolved:', articleId)
         return '回复成功'
     except Exception as e:
-        return e
+        return 'replyError:'+str(e)
+
+
+# register(connect(),msg,'oDFHUv8_F7PVZc0oMrVjlBrlMKto')
+conn = connect()
+weixinid = 'oDFHUv8_F7PVZc0oMrVjlBrlMKto'
+# addUser(conn,'13365188628','袁枫','株洲分公司','网管')
+# print(getArticleDetail(conn,str(13)))
+# a = conn.sinter(['unsolved:','unsolved:'])
+# b = {'3':'3','2':'2','1':'1'}
+# print(dicToText(conn, b))
+# print(is_admin_article(conn,b'13'.decode()))
