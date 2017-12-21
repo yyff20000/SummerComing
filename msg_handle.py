@@ -18,10 +18,13 @@ USAGE = '''
 发送：查询 文章id/故障描述
 
 [ 2 ] 提交故障描述，系统将自动为您匹配可能的解决方案:
-发送：报障 具体的故障描述，包括......
+发送：报障 类型id(无匹配故障类型请填0) 故障描述(可不填)
 
 [ 3 ] 管理员对未解决报障问题进行人工回复:
 发送：回复 id 故障解决方案
+
+<a href="http://172.93.47.109:80/">常用资料下载</a>
+<a href="http://172.93.47.109:80/contact">常用管理联系方式</a>
 '''
 
 
@@ -55,17 +58,17 @@ def check(msg, redis_conn, weixinId): # 查看文章
                 return redis_handle.admin_check(redis_conn,)
             else:
                 return redis_handle.user_check(redis_conn, weixinId,)
-        elif len(msg) == 2 :
+        elif len(msg) >= 2 :
             if error_handle.is_article_num(msg[1])  :
-                if redis_handle.is_article(redis_conn, msg[1]) | redis_handle.is_admin_article(redis_conn,msg[1]): # 输入 [查看 id] 获取某文章内容
+                if redis_handle.is_article(redis_conn, msg[1]) | redis_handle.is_category(redis_conn,msg[1]): # 输入 [查看 id] 获取某文章内容
                     if weixinId == WEIXINID:  # 管理员登录
                         return redis_handle.admin_check(redis_conn, msg[1])
                     else:
                         return redis_handle.user_check(redis_conn, weixinId, msg[1])
                 else:
-                    return '未找到对应文章'
+                    return '文章id有误，未找到对应文章'
             else :
-                return search_handle.match(redis_conn, msg[1])
+                return search_handle.match(redis_conn, ''.join(msg[1:])) + '\n\n若无相符合的故障场景，请输入[报障 1 故障信息(包括ip、资源名称、故障详细情况描述等)]'
         else:
             return "查询格式发生错误，请检查后重新输入"
     except Exception as e:
@@ -73,14 +76,19 @@ def check(msg, redis_conn, weixinId): # 查看文章
 
 
 def report(msg, redis_conn, weixinId): # 用户报障
-    if len(msg) != 2 :
-        return "报障参数错误，请检查格式"
-    elif len(msg[1]) < 10 :
-        return "问题描述长度过短，请提供详细的问题描述"
+    if len(msg) < 3 :
+        return "参数个数不得小于3，请输入[帮助]核对报障格式"
+    if not (redis_conn.sismember('categories:', msg[1])) :
+        return '未查询到分类：'+msg[1]+'，请检查参数内容'
+    if redis_conn.sismember('needSubmitOrder:', msg[1]):
+        if not error_handle.format(msg[2],4):
+            return 'IP格式出错'
+        elif len(msg) != 4:
+            return '格式错误,请按[报障 类型id IP 资源名称]的格式发送报障信息'
     try:
-        return "文章id为 " + redis_handle.post_article(redis_conn, weixinId, msg[1], )
-    except Exception:
-        return "出错啦"
+        return redis_handle.userPost(redis_conn, weixinId, msg[1], ' '.join(msg[2:]))
+    except Exception as e:
+        return e
 
 
 def reply(msg, redis_conn, weixinId): # 管理员回复 [!]添加实时推送功能 管理员回复解决方案后自动将消息推送至用户处
@@ -128,3 +136,5 @@ def msgHandle(textMsg): # 主处理函数，传入一个recMsg结构
             return msg + '\n[ * ] 系统尚未保存您的用户信息，请发送如下格式信息完成注册：\n\n注册 联系方式 姓名 \n如：注册 15088888888 老王'
         else:
             return msg + USAGE
+
+

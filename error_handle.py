@@ -15,6 +15,9 @@ def format(content, type):
     elif type == 3: # 检测是否为字符
         if re.findall(r'[~!@#\$\%\^&\*\(\)_\+\-=\{\}\[\]\|\\\:\'\";\<\>.,\?\/\`。，？；：“”‘’]',content):
             return True
+    elif type == 4: # 检测是否为ip地址
+        if re.findall(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',content):
+            return True
     else :
         return '发生了未知错误，请稍后再试!'
 

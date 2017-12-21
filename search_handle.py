@@ -16,10 +16,11 @@ def match(redis_conn, userInput):
         out = ''
         if seperate(redis_conn, userInput, 'User') != True: # 首先构造用户输入的分词集
             return 'UserInputError'
-        for id in sorted(redis_conn.smembers('articles_admin:')): # 集合合并+循环获取所有文章的内容
+        for id in sorted(redis_conn.smembers('categories:')): # 集合合并+循环获取所有文章的内容
             articleContent = redis_handle.getContent(
                 redis_conn,
                 str(id),
+                False
             ) # 构造了当前文章的分词集
             # print(articleContent)
             if seperate(redis_conn, articleContent, 'Db') != True:
@@ -30,16 +31,16 @@ def match(redis_conn, userInput):
                 relation[str(id)] = str(count)  # 映射赋值
 
         rel = dictSort(relation) # 映射排序
-        if rel == {}:
+        if rel == '':
             return '无匹配数据'
-        for key in rel.keys():
+        for key in rel:
             if i == 3:
                 return out[:-2]
             else:
                 i += 1
-                if not redis_handle.is_admin_article(conn, str(key)):
+                if not redis_handle.is_category(conn, str(key)):
                     return out[:-2]
-                out += redis_handle.getArticleDetail(conn, str(key))
+                out += redis_handle.getArticleDetail(conn, str(key),False)
         return out[:-2]
     except Exception as e :
         return 'matchError:'+str(e)
@@ -64,10 +65,11 @@ def seperate(redis_conn, content, input): # 构造分词集 input = Db / User �
 
 def dictSort(dic): # 按照键值从大到小排序
     try:
-        out = {}
+        out = []
         dict = sorted(dic.items(), key=lambda d: d[1], reverse=True)
+        print(dict)
         for i in dict:
-            out[str(i[0])] = str(i[1])
+            out.append(i[0])
         return out
     except Exception as e:
         return e
@@ -76,6 +78,7 @@ def dictSort(dic): # 按照键值从大到小排序
 # print(dictSort(a))
 
 conn = redis_handle.connect()
-print(match(conn,'服务器异常'))
+# dic = {'13': '1', '21': '4', '17': '1', '1': '1', '3': '1', '2': '1', '5': '1', '8': '1'}
+# print(match(conn,'无法加载用户配置文件'))
 # print(redis_handle.is_admin_article(conn,18))
 # print(redis_handle.is_admin_article(conn, b'13'))

@@ -29,43 +29,43 @@ def connect():
 def is_registered(conn, weixin_id): # 检查是否注册
     return conn.sismember('users:', weixin_id)
 
-def is_admin_article(conn, article_id):
-    return conn.sismember('articles_admin:', article_id)
+def is_category(conn, category_id): # 检查是否存在类别
+    return conn.sismember('categories:', category_id)
 
 def is_article(conn, article_id): # 检查是否存在该文章
     return conn.sismember('articles:', article_id)
 
 def getNameFromPhone(conn, phone):
-    return conn.hget("user:" + phone, "name") # user:13388888888
+    return conn.hget("user:" + phone, "name") # user:13388888888 返回weixinid
 
-def getTitle(conn, article_id): # 获取文章标题
-    return conn.hget('article:'+article_id,'title')
+def getTitle(conn, id, article=True): # 获取文章标题
+    return conn.hget(('article:'if article else 'category:')+id,'title')
 
 
-def getContent(conn, article_id): # 获取文章内容
-    return conn.hget('article:'+article_id,'content')
+def getContent(conn, id, article=True): # 获取文章内容
+    return conn.hget(('article:'if article else 'category:')+id,'content')
 
 
 def getSolveStatus(conn, article_id):
     return '未解决' if conn.sismember('unsolved:', article_id) else '已解决'
 
 
-def getReply(conn, article_id): # 获取文章解决方案
-    reply = conn.hget('article:'+article_id,'reply')
+def getReply(conn, id, article = True): # 获取文章解决方案
+    reply = conn.hget(('article:'if article else 'category:')+id,'reply')
     return reply if reply != '' else '未解决'
 
-def getArticle(conn, article_id):
-    content = getContent(conn, str(article_id))
-    title = getTitle(conn, article_id)
-    text = '文章id: '+ str(article_id) + \
+def getArticle(conn, id, article = True):
+    content = getContent(conn, str(id), article)
+    title = getTitle(conn, id, article)
+    text = '文章id: '+ str(id) + \
         '\n文章标题: '+ title +  \
         '\n文章内容：'+ content + '\n\n'
     return text
 
-def getArticleDetail(conn, article_id):
-    content = str(getContent(conn,str(article_id)))
-    reply = str(conn.hget('article:'+article_id, 'reply'))
-    text = '文章id: '+ str(article_id) + \
+def getArticleDetail(conn, id, article = True):
+    content = str(getContent(conn,str(id), article))
+    reply = str(getReply(conn, str(id), article))
+    text = '文章id: '+ str(id) + \
         '\n内容描述: '+ content +  \
         '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
     return str(text)
@@ -82,7 +82,7 @@ def register(conn, textMsg, weixin_id): # 用户注册
     # 添加 user: 结构中用户
     conn.sadd('users:', weixin_id)
     # 添加weixinId->phone对应表
-    conn.sadd('phone:'+textMsg[1],weixin_id)
+    conn.sadd('phone:'+weixin_id,textMsg[1])
     # 添加 单个用户profile
     conn.hmset('user:' + textMsg[1] , {
         'weixinId': weixin_id
@@ -95,49 +95,76 @@ def addUser(conn, phone, name, corp, depart):
         'name': name,
         'phone': phone,
         'createtime': time.time(),
+        'articleDuplicate':0
     })
 
+def userPost(conn, user, category_id, content): # 用户报障
+    inter = conn.sinter(['articles:'+user,'unsolved:'])
+    if inter: # 查看用户是否存在unsolved报障
+        if conn.hget('user:'+conn.smembers('phone:'+user).pop(),'articleDuplicate') == '0':
+            conn.hmset('user:'+conn.smembers('phone:'+user).pop(),{
+                'articleDuplicate': 1
+            })
+            return '您有未解决的报障，若再次提交，报障将覆盖'
+        else: # 已提示过
+            conn.hmset('user:' + conn.smembers('phone:' + user).pop(), { # 将警示位设置为0
+                'articleDuplicate': 0
+            })
+            article_id = str(inter.pop())
+            before_category_id = str(conn.hget('article:'+article_id,'category'))
+            conn.srem('category:'+before_category_id+':articles:', article_id)
 
-def post_article(conn, user, content, solution= None): #  发布文章，缺少 [!] 关键字添加功能
+    else: # 不存在未解决报障 生成新文章id
+        article_id = str(conn.incr('count:')) # 自增获取用户提交的文章id
+        conn.sadd('articles:', article_id)  # articles: {1,2,3,4}
+        conn.sadd('articles:' + user, article_id)  # articles:oDFHUv8_F7PVZc0oMrVjlBrlMKto  {1,2,3,4}
+        conn.sadd('unsolved:', article_id)  # unsolved:   {1,2,3,4}
 
-    article_id = str(conn.incr('count:')) # 自增获取文章id
+    conn.sadd('category:' + category_id + ':articles:', article_id)  # category:1:articles: 报障类别为1时的用户文章1
+
     now = time.time()
-    article = 'article:' + article_id
-
-    conn.hmset(article, { # 添加文章基本内容
-        'title': content[:24]+'...',
-        #'link' : link,
+    articles = 'article:' + article_id
+    description = conn.hget('category:'+category_id,'content')
+    conn.hmset(articles, { # 添加文章基本内容
+        'title': description,
         'content': content,
         'poster': user,
         'time': now,
         'watch': 0,
-        'reply': solution if solution != None else '' # 管理员回复的解决方案
+        'reply': '',
+        'category': category_id
     })
 
     # conn.zadd('heat:', article_id, now + WATCH_SCORE) # 根据热度排序集合
     # conn.zadd('time:', article_id, now) # 根据发布时间排序集合
 
-    conn.sadd('articles:', article_id)
-    conn.sadd('articles:'+user, article_id)
-    if solution == None:
-        conn.sadd('unsolved:', article_id)
-    return article_id
+    return '提交报障成功，文章id是：'+article_id+'。输入[查询 '+article_id+']查看详细信息'
 
 
-# def get_articles(conn, page, order = 'heat:'): # order 可取 'heat:' 或 'time:'
-#     start = (page - 1) * ARTICLE_PER_PAGE
-#     end  = start + ARTICLE_PER_PAGE - 1
-#
-#     id_set = conn.zrevrange(order, start, end)
-#     for id in id_set:
-#         article_data = conn.hgetall(id)
+def adminPost(conn, poster, content, solution, needSubmitOrder = 0): #  管理员发布文章
 
+    category_id = str(conn.incr('count:')) # 自增获取类别id
+    now = time.time()
+    category = 'category:' + category_id
 
-def admin_check(conn, id = None): # 管理员输入 查看
+    conn.hmset(category, { # 添加文章基本内容
+        'title': content[:24]+'...',
+        'content': content,
+        'poster': poster,
+        'time': now,
+        'watch': 0,
+        'reply': solution,
+        'category': category_id
+    })
+    conn.sadd('categories:', category_id)
+    if needSubmitOrder == 1:
+        conn.sadd('needSubmitOrder:', category_id)
+
+def admin_check(conn, id = None): # 管理员输入 查看 返回类别id下所有文章
     if id == None:
         try:
             unsol = {}
-            inter = conn.smembers('unsolved:')
+            inter = sorted(conn.smembers('unsolved:'))
             if len(inter) != 0:
                 for i in inter:
                     unsol[i] = getTitle(conn, i) # 未解决内容一定在articles:表里
@@ -147,13 +174,12 @@ def admin_check(conn, id = None): # 管理员输入 查看
         except Exception:
             return "查询出错啦！"
     else:
-        return getArticleDetail(conn, id)[:-2] # 返回id对应文章的内容
+        return getArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
 
 
 def user_check(conn, weixinid, id = None):
     if id == None:
         try: # 根据微信id查看报障id
-            # return 'lalala'
             if not conn.exists('articles:'+ weixinid):
                 # return conn.exists('users:')
                 return '尚未提交任何报障！'
@@ -168,11 +194,10 @@ def user_check(conn, weixinid, id = None):
         except Exception as e:
             return 'user_checkError:'+str(e)
     else :
-        return getArticleDetail(conn, id)[:-2] # 返回id对应文章的内容
+        return getArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
 
 
 def reply(conn, articleId, content):
-
     try:
         conn.hmset('article:' + articleId,{
             'reply': content
@@ -183,12 +208,11 @@ def reply(conn, articleId, content):
         return 'replyError:'+str(e)
 
 
-# register(connect(),msg,'oDFHUv8_F7PVZc0oMrVjlBrlMKto')
+
 conn = connect()
-weixinid = 'oDFHUv8_F7PVZc0oMrVjlBrlMKto'
-# addUser(conn,'13365188628','袁枫','株洲分公司','网管')
-# print(getArticleDetail(conn,str(13)))
-# a = conn.sinter(['unsolved:','unsolved:'])
-# b = {'3':'3','2':'2','1':'1'}
-# print(dicToText(conn, b))
-# print(is_admin_article(conn,b'13'.decode()))
+user = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s'
+category_id = '2'
+content = '1.1.1.1 啦啦啦啦啦'
+# print(userPost(conn, user, category_id, content))
+print(user_check(conn, user,))
+# print(conn.sinter(['articles:'+user,'unsolved:']).pop())
