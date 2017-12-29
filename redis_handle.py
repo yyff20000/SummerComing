@@ -16,8 +16,7 @@ WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
-    # conn = redis.StrictRedis.from_url(url = 'redis://:PR47Pxe1lMlabUz2PrfkWIAR15JlZCxClTdVd34eRGVmLvYNPXwyKoN7LCSx85T0@duofyffmcvuq.redis.sae.sina.com.cn:10339')
+    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='***')
 
     return conn
 
@@ -77,6 +76,23 @@ def dicToText(conn, dic): # 将字典类型转成输出
         out = out + '文章id: ' + str(i) + '\n摘要：' + dic.get(str(i)) + '\n解决状态: ' + getSolveStatus(conn, str(i)) +'\n\n'
     return out
 
+def applyForReg(conn, content):
+    tempUserId = str(conn.incr('tempUserId:'))
+    conn.set('tempUser:'+tempUserId+':', content)
+    conn.sadd('tempUsers:', tempUserId+':'+content)
+
+def passApply(conn, tempUserId):
+    content = conn.get('tempUser:'+tempUserId+':') # 获取注册信息
+    conn.delete('tempUser:' + tempUserId + ':')
+    conn.srem('tempUsers:',tempUserId+':'+content) # 删除临时内容
+    contentMsg = content.split(' ')                # 按空格分开
+    addUser(conn, contentMsg[0],contentMsg[1],contentMsg[2],contentMsg[3])
+    register(conn, contentMsg[:2][::-1], contentMsg[-1])
+
+def delApply(conn, tempUserId):
+    content = conn.get('tempUser:' + tempUserId + ':')
+    conn.delete('tempUser:' + tempUserId + ':')
+    conn.srem('tempUsers:',tempUserId+':'+str(content)) # 删除临时内容
 
 def register(conn, textMsg, weixin_id): # 用户注册
     # 添加 user: 结构中用户
@@ -117,7 +133,7 @@ def userPost(conn, user, category_id, content): # 用户报障
     else: # 不存在未解决报障 生成新文章id
         article_id = str(conn.incr('count:')) # 自增获取用户提交的文章id
         conn.sadd('articles:', article_id)  # articles: {1,2,3,4}
-        conn.sadd('articles:' + user, article_id)  # articles:oDFHUv8_F7PVZc0oMrVjlBrlMKto  {1,2,3,4}
+        conn.sadd('articles:' + user, article_id)  # articles:***  {1,2,3,4}
         conn.sadd('unsolved:', article_id)  # unsolved:   {1,2,3,4}
 
     conn.sadd('category:' + category_id + ':articles:', article_id)  # category:1:articles: 报障类别为1时的用户文章1
@@ -207,12 +223,3 @@ def reply(conn, articleId, content):
     except Exception as e:
         return 'replyError:'+str(e)
 
-
-
-conn = connect()
-user = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s'
-category_id = '2'
-content = '1.1.1.1 啦啦啦啦啦'
-# print(userPost(conn, user, category_id, content))
-print(user_check(conn, user,))
-# print(conn.sinter(['articles:'+user,'unsolved:']).pop())

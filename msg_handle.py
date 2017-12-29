@@ -1,15 +1,10 @@
 # -*- coding:utf8 -*-
 # import self_handle_redis_part
-import redis_handle
-import error_handle
 import receive
-import search_handle
+import redis_handle, error_handle, search_handle, mail_handle
 
-# xml = '<xml><ToUserName><![CDATA[wx1954194c36b26a40]]></ToUserName><FromUserName><![CDATA[test]]></FromUserName><CreateTime>1507866276465</CreateTime><MsgType><![CDATA[text]]></MsgType><MsgId><![CDATA[23523535345]]></MsgId></xml>'
-# recMsg = receive.parse_xml(xml)
-WEIXINID = 'oDFHUv8_F7PVZc0oMrVjlBrlMKto' # 电脑微信
-# WEIXINID = 'oDFHUvzLomHn8Yf_37cEIpd7_X9s' # 手机微信号
-# WEIXINID = 'oDFHUvyIwbdfm62_WU7amhnR12CM' #XYH
+WEIXINID = '***' # 电脑微信
+
 
 USAGE = '''
   ==本报障平台使用方式如下==
@@ -26,7 +21,38 @@ USAGE = '''
 <a href="http://172.93.47.109:80/">常用资料下载</a>
 <a href="http://172.93.47.109:80/contact">常用管理联系方式</a>
 '''
+def checkApply(redis_conn): # 查看申请
+    if redis_conn.exists('tempUsers:'):
+        return '\n'.join(redis_conn.smembers('tempUsers:'))
+    else:
+        return '暂无注册申请！'
 
+def applyForReg(msg, redis_conn, weixinId): #申请注册
+    if len(msg)!=5:
+        return "[ ! ] 注册失败，参数数量有误\n" + \
+               '[ ! ] 发送如下格式信息完成初始数据录入：\n\n' \
+               '注册申请 电话 姓名 公司 部门'
+    elif not error_handle.format(msg[1],2):
+        return "[ ! ] 注册失败，电话格式有误"
+    else:
+        redis_handle.applyForReg(redis_conn,' '.join(msg[1:])+' '+weixinId)
+        return '发送成功！请等待管理员校验申请，并于24小时后尝试重新注册。'
+
+def passApply(redis_conn, msg, weixinId): #同意注册
+    if weixinId!= WEIXINID:
+        return '非管理员，没有操作权限'
+    tempUserId = msg[1].split(',')
+    for i in tempUserId:
+        redis_handle.passApply(redis_conn, i)
+    return '添加用户成功'
+
+def delApply(redis_conn, msg, weixinId): #删除注册信息
+    if weixinId!= WEIXINID:
+        return '非管理员，没有操作权限'
+    tempUserId = msg[1].split(',')
+    for i in tempUserId:
+        redis_handle.delApply(redis_conn, i)
+    return '删除信息成功'
 
 def reg(msg, redis_conn, weixinId): # 用户注册功能
     # 输入格式检测
@@ -34,9 +60,9 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
     if error_msg == True:
         if not redis_handle.is_registered(redis_conn, weixinId):  # 检测数据库 user: 结构中是否存有该用户的微信id
             if redis_handle.getNameFromPhone(redis_conn, msg[1]) != msg[2]:
-                return "[ ! ] 注册失败，手机号与姓名校验不匹配。\n" + \
-                       '[ ! ] 请发送如下格式信息完成注册：\n\n' \
-                       '注册 联系方式 姓名'
+                return "[ ! ] 注册失败，无匹配的用户数据\n" + \
+                       '[ ! ] 发送如下格式信息完成初始数据录入,并等待管理员校验申请,24小时后尝试操作：\n\n' \
+                       '注册申请 电话 姓名 公司 部门'
             # 执行注册操作
             redis_handle.register(redis_conn, msg, weixinId)
             return '[ * ] 注册成功，祝您使用愉快。 \n ' + USAGE
@@ -113,9 +139,27 @@ def msgHandle(textMsg): # 主处理函数，传入一个recMsg结构
     operation = msg[0] # 获取用户需要进行的操作
     redis_conn = redis_handle.connect() # 连接redis服务器，获取connect对象
     # return weixinId
+
+    msgRet = '==安管平台报障响应智能系统== \n'
+
+    if operation == '注册申请':
+        return applyForReg(msg, redis_conn, weixinId)
+
     if operation == '注册':
         # 用户注册
         return reg(msg, redis_conn, weixinId)
+
+    if not redis_handle.is_registered(redis_conn, weixinId):
+        return msgRet + '\n[ * ] 系统尚未保存您的用户信息，请发送如下格式信息完成注册：\n\n注册 联系方式 姓名 \n如：注册 15088888888 老王'
+
+    if operation == '查询申请':
+        return checkApply(redis_conn)
+
+    if operation == '同意':
+        return passApply(redis_conn, msg, weixinId)
+
+    if operation == '删除':
+        return delApply(redis_conn, msg, weixinId)
 
     elif operation == '查询':
         # 判断用户id是否在 user: 中存在
@@ -129,12 +173,8 @@ def msgHandle(textMsg): # 主处理函数，传入一个recMsg结构
         # 重复回复问题
         return reply(msg, redis_conn, weixinId )
 
-    else :
-        # 无法识别的输入
-        msg = '==安管平台报障响应智能系统== \n'
-        if not redis_handle.is_registered(redis_conn, weixinId):
-            return msg + '\n[ * ] 系统尚未保存您的用户信息，请发送如下格式信息完成注册：\n\n注册 联系方式 姓名 \n如：注册 15088888888 老王'
-        else:
-            return msg + USAGE
+    else:
+        return msgRet + USAGE
+
 
 
