@@ -16,14 +16,10 @@ WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='***')
+    conn = redis.Redis(host='172.93.47.109', port=***, db=0, password='***')
 
     return conn
 
-# article = 'article:10000'
-# conn.zadd('score:', article, 100000000)
-# conn.zrem('score:', article)
-# print(conn.zscore('score:', article))
 
 def is_registered(conn, weixin_id): # 检查是否注册
     return conn.sismember('users:', weixin_id)
@@ -63,8 +59,15 @@ def getArticle(conn, id, article = True):
 
 def getArticleDetail(conn, id, article = True):
     content = str(getContent(conn,str(id), article))
+    weixinid = conn.hget('article:'+str(id), 'poster')
+    phone = ''.join(conn.smembers('phone:'+str(weixinid)))
+    name = conn.hget('user:'+ phone, 'name')
+    account = conn.hget('user:'+ phone, 'account')
+    corp = conn.hget('user:'+phone,'corp')
+    timeOrigin = conn.hget('article:'+str(id), 'submitTime')
+    submitTime = time.strftime("%a %b %d %H:%M:%S %Y", time.localtime(float(timeOrigin)))
     reply = str(getReply(conn, str(id), article))
-    text = '文章id: '+ str(id) + \
+    text =  ('姓名：'+name+'\n公司：'+corp+'\n手机号：'+phone+'\n主账号：'+account+'\n提交时间：'+str(submitTime)) + \
         '\n内容描述: '+ content +  \
         '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
     return str(text)
@@ -98,19 +101,20 @@ def register(conn, textMsg, weixin_id): # 用户注册
     # 添加 user: 结构中用户
     conn.sadd('users:', weixin_id)
     # 添加weixinId->phone对应表
-    conn.sadd('phone:'+weixin_id,textMsg[1])
+    conn.sadd('phone:'+weixin_id, textMsg[1])
     # 添加 单个用户profile
     conn.hmset('user:' + textMsg[1] , {
-        'weixinId': weixin_id
+        'weixinId': weixin_id,
+        'createtime':time.time()
     })
 
-def addUser(conn, phone, name, corp, depart):
+def addUser(conn, phone, name, corp, account):
     conn.hmset('user:' + phone, {
         'corp': corp,
-        'depart': depart,
+        'account': account,
         'name': name,
         'phone': phone,
-        'createtime': time.time(),
+        'createtime': '',
         'articleDuplicate':0
     })
 
@@ -133,7 +137,7 @@ def userPost(conn, user, category_id, content): # 用户报障
     else: # 不存在未解决报障 生成新文章id
         article_id = str(conn.incr('count:')) # 自增获取用户提交的文章id
         conn.sadd('articles:', article_id)  # articles: {1,2,3,4}
-        conn.sadd('articles:' + user, article_id)  # articles:***  {1,2,3,4}
+        conn.sadd('articles:' + user, article_id)  # articles:oDFHUv8_F7PVZc0oMrVjlBrlMKto  {1,2,3,4}
         conn.sadd('unsolved:', article_id)  # unsolved:   {1,2,3,4}
 
     conn.sadd('category:' + category_id + ':articles:', article_id)  # category:1:articles: 报障类别为1时的用户文章1
@@ -145,7 +149,8 @@ def userPost(conn, user, category_id, content): # 用户报障
         'title': description,
         'content': content,
         'poster': user,
-        'time': now,
+        'submitTime': now,
+        'solveTime':'',
         'watch': 0,
         'reply': '',
         'category': category_id
@@ -167,7 +172,8 @@ def adminPost(conn, poster, content, solution, needSubmitOrder = 0): #  管理�
         'title': content[:24]+'...',
         'content': content,
         'poster': poster,
-        'time': now,
+        'submitTime': now,
+        'solveTime':now,
         'watch': 0,
         'reply': solution,
         'category': category_id
@@ -215,11 +221,15 @@ def user_check(conn, weixinid, id = None):
 
 def reply(conn, articleId, content):
     try:
+        now = time.time()
         conn.hmset('article:' + articleId,{
-            'reply': content
+            'reply': content,
+            'solveTime':now
         })
         conn.srem('unsolved:', articleId)
         return '回复成功'
     except Exception as e:
         return 'replyError:'+str(e)
+
+
 

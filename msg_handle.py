@@ -31,7 +31,7 @@ def applyForReg(msg, redis_conn, weixinId): #申请注册
     if len(msg)!=5:
         return "[ ! ] 注册失败，参数数量有误\n" + \
                '[ ! ] 发送如下格式信息完成初始数据录入：\n\n' \
-               '注册申请 电话 姓名 公司 部门'
+               '注册申请 电话 姓名 公司 主账号'
     elif not error_handle.format(msg[1],2):
         return "[ ! ] 注册失败，电话格式有误"
     else:
@@ -62,7 +62,7 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
             if redis_handle.getNameFromPhone(redis_conn, msg[1]) != msg[2]:
                 return "[ ! ] 注册失败，无匹配的用户数据\n" + \
                        '[ ! ] 发送如下格式信息完成初始数据录入,并等待管理员校验申请,24小时后尝试操作：\n\n' \
-                       '注册申请 电话 姓名 公司 部门'
+                       '注册申请 电话 姓名 公司 主账号'
             # 执行注册操作
             redis_handle.register(redis_conn, msg, weixinId)
             return '[ * ] 注册成功，祝您使用愉快。 \n ' + USAGE
