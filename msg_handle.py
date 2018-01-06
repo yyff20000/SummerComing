@@ -1,6 +1,6 @@
 # -*- coding:utf8 -*-
 # import self_handle_redis_part
-import receive
+import receive, traceback
 import redis_handle, error_handle, search_handle, mail_handle
 
 WEIXINID = '***' # 电脑微信
@@ -98,6 +98,7 @@ def check(msg, redis_conn, weixinId): # 查看文章
         else:
             return "查询格式发生错误，请检查后重新输入"
     except Exception as e:
+        traceback.print_exc()
         return 'checkError'+str(e)
 
 

@@ -57,17 +57,29 @@ def getArticle(conn, id, article = True):
         '\n文章内容：'+ content + '\n\n'
     return text
 
-def getArticleDetail(conn, id, article = True):
+def adminGetArticleDetail(conn, id, article = True):
     content = str(getContent(conn,str(id), article))
-    weixinid = conn.hget('article:'+str(id), 'poster')
+    weixinid = conn.hget(('article:' if article==True else 'category:')+str(id), 'poster')
     phone = ''.join(conn.smembers('phone:'+str(weixinid)))
     name = conn.hget('user:'+ phone, 'name')
     account = conn.hget('user:'+ phone, 'account')
     corp = conn.hget('user:'+phone,'corp')
-    timeOrigin = conn.hget('article:'+str(id), 'submitTime')
+    timeOrigin = conn.hget(('article:' if article==True else 'category:')+str(id), 'submitTime')
     submitTime = time.strftime("%a %b %d %H:%M:%S %Y", time.localtime(float(timeOrigin)))
     reply = str(getReply(conn, str(id), article))
-    text =  ('姓名：'+name+'\n公司：'+corp+'\n手机号：'+phone+'\n主账号：'+account+'\n提交时间：'+str(submitTime)) + \
+    text =  ('姓名：'+str(name)+'\n公司：'+str(corp)+'\n手机号：'+str(phone)+'\n主账号：'+str(account)+'\n提交时间：'+str(submitTime)) + \
+        '\n内容描述: '+ content +  \
+        '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
+    return str(text)
+
+def userGetArticleDetail(conn, id, article = True):
+    content = str(getContent(conn,str(id), article))
+    weixinid = conn.hget(('article:' if article==True else 'category:')+str(id), 'poster')
+    phone = ''.join(conn.smembers('phone:' + str(weixinid)))
+    timeOrigin = conn.hget(('article:' if article else 'category:')+str(id), 'submitTime')
+    submitTime = time.strftime("%a %b %d %H:%M:%S %Y", time.localtime(float(timeOrigin)))
+    reply = str(getReply(conn, str(id), article))
+    text =  ('文章id：'+str(id)+'\n提交时间：'+str(submitTime)) + \
         '\n内容描述: '+ content +  \
         '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
     return str(text)
@@ -196,7 +208,8 @@ def admin_check(conn, id = None): # 管理员输入 查看 返回类别id下所�
         except Exception:
             return "查询出错啦！"
     else:
-        return getArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
+        # print(conn.sismember('articles:',str(id)))
+        return adminGetArticleDetail(conn, str(id), (conn.sismember('articles:',str(id))))[:-2] # 返回id对应文章的内容
 
 
 def user_check(conn, weixinid, id = None):
@@ -216,7 +229,7 @@ def user_check(conn, weixinid, id = None):
         except Exception as e:
             return 'user_checkError:'+str(e)
     else :
-        return getArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
+        return userGetArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
 
 
 def reply(conn, articleId, content):
@@ -230,6 +243,5 @@ def reply(conn, articleId, content):
         return '回复成功'
     except Exception as e:
         return 'replyError:'+str(e)
-
 
 

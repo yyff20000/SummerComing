@@ -1,5 +1,6 @@
 # -*- coding:utf8 -*-
 
+import traceback
 import jieba
 import jieba.posseg as pseg
 import redis
@@ -38,12 +39,14 @@ def match(redis_conn, userInput):
                 return out[:-2]
             else:
                 i += 1
-                if not redis_handle.is_category(conn, str(key)):
+                if not redis_handle.is_category(redis_conn, str(key)):
                     return out[:-2]
-                out += redis_handle.getArticleDetail(conn, str(key),False)
+                out += redis_handle.userGetArticleDetail(redis_conn, str(key),False)
         return out[:-2]
     except Exception as e :
-        return 'matchError:'+str(e)
+        # logging.exception('matchError!\n')
+        traceback.print_exc()
+        return 'matchError:'+str(e)+ 'exception in line'#, str(exc_traceback)
 
 def seperate(redis_conn, content, input): # 构造分词集 input = Db / User 代表数据原有文章内容或用户查询内容
     try:
@@ -74,11 +77,3 @@ def dictSort(dic): # 按照键值从大到小排序
     except Exception as e:
         return e
 
-# a = {'1': '1', '2':'2'}
-# print(dictSort(a))
-
-conn = redis_handle.connect()
-# dic = {'13': '1', '21': '4', '17': '1', '1': '1', '3': '1', '2': '1', '5': '1', '8': '1'}
-# print(match(conn,'无法加载用户配置文件'))
-# print(redis_handle.is_admin_article(conn,18))
-# print(redis_handle.is_admin_article(conn, b'13'))
