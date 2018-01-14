@@ -4,11 +4,11 @@ from flask import Flask, g, request, make_response, render_template, send_from_d
 # import basic
 import hashlib
 import receive, reply
-import msg_handle
+import msg_handle, redis_handle
 
 app = Flask(__name__)
 app.threaded=True
-
+# app.debug = True
 
 @app.route("/", methods=['GET'])
 
@@ -55,6 +55,16 @@ def index():
 def contact():
     return render_template('contact.html')
 
+@app.route('/analysis', methods = ['GET'])
+
+def analysis():
+    return render_template('analysis.html')
+
+@app.route('/api/<args>', methods = ['GET'])
+
+def api(args):
+    variables = args.split('&')
+    return redis_handle.analysis(variables[0].split('=')[1],variables[1].split('=')[1])
 
 # 配置文件下载路由
 @app.route("/download/<filename>", methods=['GET'])
@@ -105,6 +115,8 @@ def download_file(filename):
         response = "No such file !"
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
+
+
 
 if __name__=='__main__':
     app.run(host="0.0.0.0", port=80, threaded = True)
