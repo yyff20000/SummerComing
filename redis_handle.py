@@ -12,7 +12,7 @@ WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
+    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='***')
 
     return conn
 

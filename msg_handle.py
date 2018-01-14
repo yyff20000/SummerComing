@@ -3,7 +3,7 @@
 import receive, traceback
 import redis_handle, error_handle, search_handle, mail_handle
 
-WEIXINID = ['oDFHUv8_F7PVZc0oMrVjlBrlMKto'] # 电脑微信
+WEIXINID = ['***'] # 电脑微信
 
 USAGE = '''
   ==本报障平台使用方式如下==
