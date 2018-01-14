@@ -1,13 +1,9 @@
 # -*- coding:utf8 -*-
 import redis
 import time
+import json
+import traceback
 
-# 注意事项
-# password强度
-# ip限定
-# 重命名CONFIG命令 Redis.conf -> rename-command CONFIG b840fc02d524045429941cc15f59e41cb7be6c52
-
-#
 # 定义的一些常量
 
 ONE_WEEK_IN_SECONDS = 24 * 3600 * 7
@@ -16,10 +12,9 @@ WATCH_SCORE = 3600 * 12 # 一篇文章被阅读时提升的热度分值
 ARTICLE_PER_PAGE = 25 # 每页固定的文章数(可修改)
 
 def connect():
-    conn = redis.Redis(host='172.93.47.109', port=***, db=0, password='***')
+    conn = redis.Redis(host='172.93.47.109', port=6379, db=0, password='toor')
 
     return conn
-
 
 def is_registered(conn, weixin_id): # 检查是否注册
     return conn.sismember('users:', weixin_id)
@@ -57,33 +52,35 @@ def getArticle(conn, id, article = True):
         '\n文章内容：'+ content + '\n\n'
     return text
 
-def adminGetArticleDetail(conn, id, article = True):
-    content = str(getContent(conn,str(id), article))
-    weixinid = conn.hget(('article:' if article==True else 'category:')+str(id), 'poster')
+def GetArticleDetail(conn, id, article = True, isAdmin = None):
+    content = getContent(conn,str(id), article)
+    weixinid = conn.hget(('article:' if article else 'category:')+str(id), 'poster')
     phone = ''.join(conn.smembers('phone:'+str(weixinid)))
     name = conn.hget('user:'+ phone, 'name')
     account = conn.hget('user:'+ phone, 'account')
     corp = conn.hget('user:'+phone,'corp')
-    timeOrigin = conn.hget(('article:' if article==True else 'category:')+str(id), 'submitTime')
+    timeOrigin = conn.hget(('article:' if article else 'category:')+str(id), 'submitTime' if article else 'time')
     submitTime = time.strftime("%a %b %d %H:%M:%S %Y", time.localtime(float(timeOrigin)))
+    category = conn.hget(('article:' if article else 'category:')+str(id),'category')
     reply = str(getReply(conn, str(id), article))
-    text =  ('姓名：'+str(name)+'\n公司：'+str(corp)+'\n手机号：'+str(phone)+'\n主账号：'+str(account)+'\n提交时间：'+str(submitTime)) + \
-        '\n内容描述: '+ content +  \
-        '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
+    if isAdmin:
+        text =  '姓名：'+str(name)+\
+                '\n公司：'+str(corp)+\
+                '\n手机号：'+str(phone)+\
+                '\n主账号：'+str(account)+\
+                '\n故障类别：'+str(category)+\
+                '\n提交时间：'+str(submitTime) + \
+                '\n内容描述: '+ str(content) +  \
+                '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
+    else:
+        text = '文章id：' + str(id) + (
+                (
+                    '\n故障类别：'+ str(category)+\
+                    '\n提交时间：' + str(submitTime)
+                ) if article else '') + \
+               '\n内容描述: ' + str(content) + \
+               '\n解决方案：' + (reply if reply != '' else '待解决') + '\n\n'
     return str(text)
-
-def userGetArticleDetail(conn, id, article = True):
-    content = str(getContent(conn,str(id), article))
-    weixinid = conn.hget(('article:' if article==True else 'category:')+str(id), 'poster')
-    phone = ''.join(conn.smembers('phone:' + str(weixinid)))
-    timeOrigin = conn.hget(('article:' if article else 'category:')+str(id), 'submitTime')
-    submitTime = time.strftime("%a %b %d %H:%M:%S %Y", time.localtime(float(timeOrigin)))
-    reply = str(getReply(conn, str(id), article))
-    text =  ('文章id：'+str(id)+'\n提交时间：'+str(submitTime)) + \
-        '\n内容描述: '+ content +  \
-        '\n解决方案：'+ (reply if reply != '' else '待解决') + '\n\n'
-    return str(text)
-
 
 def dicToText(conn, dic): # 将字典类型转成输出
     out = ''
@@ -176,7 +173,7 @@ def userPost(conn, user, category_id, content): # 用户报障
 
 def adminPost(conn, poster, content, solution, needSubmitOrder = 0): #  管理员发布文章
 
-    category_id = str(conn.incr('count:')) # 自增获取类别id
+    category_id = str(conn.incr('initCount:')) # 自增获取类别id
     now = time.time()
     category = 'category:' + category_id
 
@@ -184,7 +181,7 @@ def adminPost(conn, poster, content, solution, needSubmitOrder = 0): #  管理�
         'title': content[:24]+'...',
         'content': content,
         'poster': poster,
-        'submitTime': now,
+        'time': now,
         'solveTime':now,
         'watch': 0,
         'reply': solution,
@@ -194,42 +191,42 @@ def adminPost(conn, poster, content, solution, needSubmitOrder = 0): #  管理�
     if needSubmitOrder == 1:
         conn.sadd('needSubmitOrder:', category_id)
 
-def admin_check(conn, id = None): # 管理员输入 查看 返回类别id下所有文章
-    if id == None:
-        try:
-            unsol = {}
-            inter = sorted(conn.smembers('unsolved:'))
-            if len(inter) != 0:
-                for i in inter:
-                    unsol[i] = getTitle(conn, i) # 未解决内容一定在articles:表里
-                return dicToText(conn, unsol)[:-2]  # 返回未解决文章id
-            else:
-                return "全部故障均已解决！"
-        except Exception:
-            return "查询出错啦！"
+def check(conn, weixinid = None, id = None, isAdmin = False, action = None): # 管理员输入 查看 返回类别id下所有文章
+
+    if action == 'getArticle': #输入文章id
+        return GetArticleDetail(conn, str(id), (conn.sismember('articles:',str(id))), isAdmin)[:-2] # 返回id对应文章的内容
+
+    elif (isAdmin==False) and (not conn.exists('articles:' + weixinid)):
+        return '尚未提交任何报障！'
+
+    elif action == 'getUnsolved': # 获取所有未解决文章
+        return '[ + ] 待解决文章:\n'+getArticlesByStatus(conn, weixinid, isAdmin, unsolved = True)
+
+    elif action == 'getALL':
+        return '[ + ] 待解决文章:\n'+getArticlesByStatus(conn, weixinid, isAdmin, unsolved = True)+\
+               '\n\n[ + ] 已解决文章:\n'+getArticlesByStatus(conn, weixinid, isAdmin, unsolved = False)
+
     else:
-        # print(conn.sismember('articles:',str(id)))
-        return adminGetArticleDetail(conn, str(id), (conn.sismember('articles:',str(id))))[:-2] # 返回id对应文章的内容
+        return 'Unknown action!'
 
-
-def user_check(conn, weixinid, id = None):
-    if id == None:
-        try: # 根据微信id查看报障id
-            if not conn.exists('articles:'+ weixinid):
-                # return conn.exists('users:')
-                return '尚未提交任何报障！'
-            unsol = {}
-            inter = conn.sinter(['unsolved:','articles:'+weixinid])
-            if len(inter) != 0:
-                for i in inter:
-                    unsol[i] = getTitle(conn, i)
-                return dicToText(conn, unsol)[:-2] # 返回未解决文章id
-            else:
-                return "全部故障均已解决！"
-        except Exception as e:
-            return 'user_checkError:'+str(e)
-    else :
-        return userGetArticleDetail(conn, id, (conn.sismember('articles:',id)))[:-2] # 返回id对应文章的内容
+def getArticlesByStatus(conn, weixinid, isAdmin, unsolved = True): # 获取所有已解决文章/未解决文章
+    out = {}
+    if unsolved :
+        if isAdmin:
+            mySet = sorted(conn.smembers('unsolved:'))
+        else:  # 用户行为
+            mySet = conn.sinter(['unsolved:', 'articles:' + weixinid])
+    else:
+        if isAdmin:
+            mySet = conn.sdiff(['articles:', 'unsolved:'])
+        else:
+            mySet = conn.sdiff(['articles:' + weixinid, 'unsolved:'])
+    if len(mySet) != 0:
+        for i in mySet:
+            out[i] = getTitle(conn, i)  # 未解决内容一定在articles:表里
+        return dicToText(conn, out)[:-2]  # 返回未解决文章id
+    else:
+        return "暂无！"
 
 
 def reply(conn, articleId, content):
@@ -245,3 +242,102 @@ def reply(conn, articleId, content):
         return 'replyError:'+str(e)
 
 
+def analysis(tag, data): #按日、周、月统计报障数、解决数、以及注册用户数量
+    if tag == 'Day' and data == '1':
+        return getData(data, '1')
+    elif tag == 'Day' and data == '2':
+        return getData(data, '1')
+    elif tag == 'Day' and data == '3':
+        return getData(data, '1')
+    elif tag == 'Week' and data == '1':
+        return getData(data, '2')
+    elif tag == 'Week' and data == '2':
+        return getData(data, '2')
+    elif tag == 'Week' and data == '3':
+        return getData(data, '2')
+    elif tag == 'Month' and data == '1':
+        return getData(data, '3')
+    elif tag == 'Month' and data == '2':
+        return getData(data, '3')
+    elif tag == 'Month' and data == '3':
+        return getData(data, '3')
+
+
+def tupleElement2Str(inputTuple):
+    outputTuple = []
+    for i in inputTuple:
+        outputTuple.append(str(i))
+    return outputTuple
+
+
+def getData(dataFlag, timeTag): # dataFlag对应要统计的内容 timeTag对应统计的时间间隔
+    currentTime = time.time()
+    conn = connect()
+    if timeTag == '1': # 以日统计
+        timeDivide = 3600*24
+        intervalNum = 6
+        dataReport = [0, 0, 0, 0, 0, 0, 0]
+    elif timeTag == '2': # 以周统计
+        timeDivide = 3600*24*7
+        intervalNum = 3
+        dataReport = [0, 0, 0, 0]
+    elif timeTag == '3':
+        return getYearData(dataFlag)
+
+    try:
+        if dataFlag == '3': # 统计注册信息
+            userSet = conn.smembers('users:')
+            for i in userSet:
+                phone = ''.join(conn.smembers('phone:'+i))
+                regTime = conn.hget('user:'+phone,'createtime')
+                regInterval = int(currentTime-float(regTime))//timeDivide
+                if regInterval <= intervalNum:
+                    dataReport[intervalNum-regInterval] += 1
+        articleSet = conn.smembers('articles:')
+        for i in articleSet:
+            submitTime = conn.hget('article:' + i, 'submitTime')
+            solveTime = conn.hget('article:' + i, 'solveTime')
+            if dataFlag == '1': # 报障信息
+                submitTimeInterval = int(currentTime - float(submitTime))//timeDivide
+                if submitTimeInterval <= intervalNum:
+                    dataReport[intervalNum-submitTimeInterval] += 1
+            elif dataFlag == '2': # 解决信息
+                if solveTime != '': # 若已解决
+                    submitTimeInterval = int((currentTime) - float(submitTime)) // timeDivide
+                    if submitTimeInterval <= intervalNum:
+                        dataReport[intervalNum - submitTimeInterval] += 1
+        return ','.join(tupleElement2Str(dataReport))
+    except Exception as e:
+        print(traceback.print_exc())
+        print(e)
+
+def getYearData(dataFlag):
+    conn = connect()
+    dataReport = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    currentYear = time.localtime(time.time()).tm_year
+
+
+    if dataFlag == '3':  # 统计注册信息
+        userSet = conn.smembers('users:')
+        for i in userSet:
+            phone = ''.join(conn.smembers('phone:' + i))
+            regTime = conn.hget('user:' + phone, 'createtime')
+            regTimeStruct = time.localtime(float(regTime))
+            if regTimeStruct.tm_year == currentYear:
+                dataReport[regTimeStruct.tm_mon-1]+=1
+
+    articleSet = conn.smembers('articles:')
+    for i in articleSet:
+        submitTime = conn.hget('article:' + i, 'submitTime')
+        solveTime = conn.hget('article:' + i, 'solveTime')
+        if dataFlag == '1':  # 报障信息
+            regTimeStruct = time.localtime(float(submitTime))
+            if regTimeStruct.tm_year == currentYear:
+                dataReport[regTimeStruct.tm_mon - 1] += 1
+        elif dataFlag == '2':  # 解决信息
+            if solveTime != '':  # 若已解决
+                regTimeStruct = time.localtime(float(submitTime))
+                if regTimeStruct.tm_year == currentYear:
+                    dataReport[regTimeStruct.tm_mon - 1] += 1
+
+    return ','.join(tupleElement2Str(dataReport))

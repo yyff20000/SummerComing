@@ -3,8 +3,7 @@
 import receive, traceback
 import redis_handle, error_handle, search_handle, mail_handle
 
-WEIXINID = '***' # 电脑微信
-
+WEIXINID = ['oDFHUv8_F7PVZc0oMrVjlBrlMKto'] # 电脑微信
 
 USAGE = '''
   ==本报障平台使用方式如下==
@@ -39,7 +38,7 @@ def applyForReg(msg, redis_conn, weixinId): #申请注册
         return '发送成功！请等待管理员校验申请，并于24小时后尝试重新注册。'
 
 def passApply(redis_conn, msg, weixinId): #同意注册
-    if weixinId!= WEIXINID:
+    if weixinId not in WEIXINID:
         return '非管理员，没有操作权限'
     tempUserId = msg[1].split(',')
     for i in tempUserId:
@@ -47,7 +46,7 @@ def passApply(redis_conn, msg, weixinId): #同意注册
     return '添加用户成功'
 
 def delApply(redis_conn, msg, weixinId): #删除注册信息
-    if weixinId!= WEIXINID:
+    if weixinId not in WEIXINID:
         return '非管理员，没有操作权限'
     tempUserId = msg[1].split(',')
     for i in tempUserId:
@@ -80,20 +79,19 @@ def reg(msg, redis_conn, weixinId): # 用户注册功能
 def check(msg, redis_conn, weixinId): # 查看文章
     try:
         if len(msg) == 1: # 未传入文章id
-            if weixinId == WEIXINID:  # 若为管理员登录，则返回所有待回复文章的id
-                return redis_handle.admin_check(redis_conn,)
-            else:
-                return redis_handle.user_check(redis_conn, weixinId,)
+            return redis_handle.check(redis_conn, weixinid = weixinId, isAdmin = (weixinId in WEIXINID), action = 'getUnsolved')
         elif len(msg) >= 2 :
-            if error_handle.is_article_num(msg[1])  :
+            if error_handle.is_article_num(msg[1])  : # 是数字
                 if redis_handle.is_article(redis_conn, msg[1]) | redis_handle.is_category(redis_conn,msg[1]): # 输入 [查看 id] 获取某文章内容
-                    if weixinId == WEIXINID:  # 管理员登录
-                        return redis_handle.admin_check(redis_conn, msg[1])
+                    if weixinId in WEIXINID:  # 管理员登录
+                        return redis_handle.check(redis_conn, id = msg[1], isAdmin = True, action='getArticle')
                     else:
-                        return redis_handle.user_check(redis_conn, weixinId, msg[1])
+                        return redis_handle.check(redis_conn, weixinid = weixinId, id = msg[1], action='getArticle')
                 else:
                     return '文章id有误，未找到对应文章'
-            else :
+            elif msg[1] == 'ALL' :
+                return redis_handle.check(redis_conn, weixinid = weixinId, isAdmin = (weixinId in WEIXINID), action = 'getALL') # 查询 ALL
+            else:
                 return search_handle.match(redis_conn, ''.join(msg[1:])) + '\n\n若无相符合的故障场景，请输入[报障 1 故障信息(包括ip、资源名称、故障详细情况描述等)]'
         else:
             return "查询格式发生错误，请检查后重新输入"
@@ -120,7 +118,7 @@ def report(msg, redis_conn, weixinId): # 用户报障
 
 def reply(msg, redis_conn, weixinId): # 管理员回复 [!]添加实时推送功能 管理员回复解决方案后自动将消息推送至用户处
     try:
-        if weixinId!=WEIXINID:
+        if weixinId not in WEIXINID:
             return "非管理员没有权限回复"
         elif len(msg) != 3 :
             return "回复参数个数错误，请检查格式"

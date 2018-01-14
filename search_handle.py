@@ -41,10 +41,9 @@ def match(redis_conn, userInput):
                 i += 1
                 if not redis_handle.is_category(redis_conn, str(key)):
                     return out[:-2]
-                out += redis_handle.userGetArticleDetail(redis_conn, str(key),False)
+                out += redis_handle.GetArticleDetail(redis_conn, str(key), False, isAdmin=False)
         return out[:-2]
     except Exception as e :
-        # logging.exception('matchError!\n')
         traceback.print_exc()
         return 'matchError:'+str(e)+ 'exception in line'#, str(exc_traceback)
 
