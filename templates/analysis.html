@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="http://www.echartsjs.com/gallery/vendors/echarts/echarts-all-3.js?_v_=1510583853276"></script>
+	<script src="static/js/jquery-1.11.0.min.js"></script>
+	<link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+	<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="http://cdn.static.runoob.com/libs/jquery/2.1.1/jquery.min.js"></script>
+	<script src="static/js/init.js"></script>
+
+    <script>
+        oneDaySec = 24*3600*1000
+        oneWeekSec = oneDaySec * 7;
+
+        function getData(tag,num) {
+            var myValue
+            $.ajax({
+                type:'GET',
+                url:"/api/tag="+tag+"&data="+num,
+                dataType:'text',
+                async:false,
+                complete:function(data){
+                    myValue = data;
+                }
+            });
+            return myValue.responseText.split(',')
+        }
+
+        function timeTrans(date, format){
+            var date = new Date(date);//如果date为13位不需要乘1000
+            if (format == 'y') return date.getFullYear() ;
+            if (format == 'm') return (date.getMonth()+1 < 10 ? '0'+(date.getMonth()+1) : date.getMonth()+1) ;
+            if (format == 'd') return (date.getDate() < 10 ? '0' + (date.getDate()) : date.getDate());
+        }
+
+        function getQueryVariable(variable){
+           var query = window.location.search.substring(1);
+           var vars = query.split("&");
+           for (var i=0;i<vars.length;i++){
+               var pair = vars[i].split("=");
+               if(pair[0] == variable){return pair[1];}
+           }
+           return(false);
+        }
+
+        tag = getQueryVariable('tag')
+
+        if (tag == ''){
+            location.href = 'analysis?tag=Day'
+        }
+
+        function getxdata() {
+            if(tag == 'Day'){
+            xdata = ['Mon','Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            }else if (tag == 'Week'){
+                xdata = ['Week-1', 'Week-2', 'Week-3', 'Week-4'];
+            }else if (tag == 'Month'){
+                xdata = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+            }
+            return xdata
+        }
+
+        function getydata1() {
+            if(tag == 'Day'){
+                temp = getData('Day','1')
+            }else if (tag == 'Week'){
+                temp = getData('Week','1');
+            }else if (tag == 'Month'){
+                temp = getData('Month','1');
+            }
+            return temp
+        }
+
+        function getydata2() {
+            if(tag == 'Day'){
+                temp = getData('Day','2');
+            }else if (tag == 'Week'){
+                temp = getData('Week','2');
+            }else if (tag == 'Month'){
+                temp = getData('Month','2');
+            }
+            return temp
+        }
+
+        function getydata3() {
+            if(tag == 'Day'){
+                temp = getData('Day','3');
+            }else if (tag == 'Week'){
+                temp = getData('Week','3');
+            }else if (tag == 'Month'){
+                temp = getData('Month','3');
+            }
+            return temp
+        }
+        ydata1 = getydata1()
+        ydata2 = getydata2()
+        ydata3 = getydata3()
+
+    </script>
+	<title>统计数据</title>
+
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<style>
+		.col-center-block {
+		    float: none;
+		    display: block;
+		    margin-left: auto;
+		    margin-right: auto;
+		}
+        .relative2 {
+            position: relative;
+            top: -20px;
+            left: 20px;
+            background-color: white;
+            width: 500px;
+        }
+	</style>
+
+
+
+</head>
+<body>
+
+    <div class="col-center-block" style="width: 600px;height:30px;">
+        <h4>
+            <p class="text-center">
+                报障工单数统计(项)
+
+            </p>
+        </h4>
+    </div>
+
+    <div id="main1" class="col-center-block" style="width: 600px;height:400px;"></div>
+
+    <div class="dropdown">
+        <button type = "button"  class = "btn btn-info dropdown-toggle pull-right" data-toggle = "dropdown" id = "dropdownMenu">分类切换
+            <span class = "caret"></span>
+        </button>
+        <ul class="dropdown-menu pull-right" role = "menu" aria-labelledby = "dropdownMenu">
+            <li role = "presentation"><a href="/analysis?tag=Day" >按天统计</a></li>
+            <li role = "presentation"><a href="/analysis?tag=Week" >按周统计</a></li>
+            <li role = "presentation"><a href="/analysis?tag=Month" >按月统计</a></li>
+        </ul>
+    </div>
+
+    <script type="text/javascript">
+		var myChart1 = echarts.init(document.getElementById('main1'));
+        //app.title = '折柱混合';
+
+        option = {
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                    crossStyle: {
+                        color: '#999'
+                    }
+                }
+            },
+            toolbox: {
+                feature: {
+                    dataView: {show: true, readOnly: false},
+                    magicType: {show: true, type: ['line', 'bar']},
+                    restore: {show: true},
+                    saveAsImage: {show: true}
+                }
+            },
+            legend: {
+                data:['报障数','解决数','注册数']
+            },
+            xAxis: [
+                {
+                    type: 'category',
+                    data: getxdata(),
+                    axisPointer: {
+                        type: 'shadow'
+                    }
+                }
+            ],
+            yAxis: [
+                {
+                    type: 'value',
+                    name: '报障数',
+                    min: 0,
+                    max: 100,
+                    interval: 25,
+                    axisLabel: {
+                        formatter: '{value} 个'
+                    }
+                },
+                {
+                    type: 'value',
+                    name: '注册数',
+                    min: 0,
+                    max: 80,
+                    interval: 20,
+                    axisLabel: {
+                        formatter: '{value} 人'
+                    }
+                }
+            ],
+            series: [
+                {
+                    name:'报障数',
+                    type:'bar',
+                    data: ydata1
+                },
+                {
+                    name:'解决数',
+                    type:'bar',
+                    data: ydata2
+                },
+                {
+                    name:'注册数',
+                    type:'line',
+                    yAxisIndex: 1,
+                    data: ydata3
+                }
+            ]
+        };
+
+		myChart1.setOption(option);
+	</script>
+
+
+    <script>
+
+        function setWeek() {
+            return
+        }
+
+    </script>
+</body>
+</html>
